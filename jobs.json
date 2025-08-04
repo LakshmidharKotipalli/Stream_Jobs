@@ -1,0 +1,14 @@
+[
+  {
+    "company": "Google",
+    "job_title": "Software Engineer",
+    "location": "Mountain View, CA",
+    "job_url": "https://careers.google.com/jobs/results/12345"
+  },
+  {
+    "company": "Microsoft",
+    "job_title": "Data Analyst",
+    "location": "Redmond, WA",
+    "job_url": "https://careers.microsoft.com/jobs/results/67890"
+  }
+]
