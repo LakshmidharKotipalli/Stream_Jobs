@@ -62,8 +62,9 @@ if df.empty:
 # Sidebar filters
 with st.sidebar:
     st.header("🔎 Filter Jobs")
-    selected_companies = st.multiselect("Select Company", df["company"].unique())
-    selected_locations = st.multiselect("Select Location", df["location"].unique())
+    selected_companies = st.multiselect("Select Company", sorted(df["company"].dropna().unique()))
+    selected_locations = st.multiselect("Select Location", sorted(df["location"].dropna().unique()))
+    selected_titles = st.multiselect("Select Job Title", sorted(df["job_title"].dropna().unique()))
 
 # Apply filters
 filtered_df = df.copy()
@@ -71,6 +72,8 @@ if selected_companies:
     filtered_df = filtered_df[filtered_df["company"].isin(selected_companies)]
 if selected_locations:
     filtered_df = filtered_df[filtered_df["location"].isin(selected_locations)]
+if selected_titles:
+    filtered_df = filtered_df[filtered_df["job_title"].isin(selected_titles)]
 
 # Metrics
 st.markdown("## 📊 Overview")
