@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+import requests
 
 # Set page config
 st.set_page_config(
@@ -44,16 +45,26 @@ def local_css():
 
 local_css()
 
-# Load data
-try:
-    with open("jobs.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-except FileNotFoundError:
-    st.error("❌ jobs.json not found. Please run the scraper first.")
-    st.stop()
+# GitHub raw URL
+GITHUB_JSON_URL = "https://github.com/LakshmidharKotipalli/Job_Scraper/blob/main/data/all_jobs.json"
 
-# Convert to DataFrame
-df = pd.DataFrame(data)
+@st.cache_data(show_spinner=False)
+def load_jobs_from_github(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return pd.DataFrame(json.loads(response.text))
+    except Exception as e:
+        st.error(f"Error loading data from GitHub: {e}")
+        return pd.DataFrame()
+
+df = load_jobs_from_github(GITHUB_JSON_URL)
+
+# Check for required columns
+required_columns = {"company", "job_title", "job_url"}
+if not required_columns.issubset(df.columns):
+    st.error(f"Missing required columns: {required_columns - set(df.columns)}")
+    st.stop()
 
 if df.empty:
     st.warning("No job listings available.")
@@ -63,24 +74,20 @@ if df.empty:
 with st.sidebar:
     st.header("🔎 Filter Jobs")
     selected_companies = st.multiselect("Select Company", sorted(df["company"].dropna().unique()))
-    selected_locations = st.multiselect("Select Location", sorted(df["location"].dropna().unique()))
     selected_titles = st.multiselect("Select Job Title", sorted(df["job_title"].dropna().unique()))
 
 # Apply filters
 filtered_df = df.copy()
 if selected_companies:
     filtered_df = filtered_df[filtered_df["company"].isin(selected_companies)]
-if selected_locations:
-    filtered_df = filtered_df[filtered_df["location"].isin(selected_locations)]
 if selected_titles:
     filtered_df = filtered_df[filtered_df["job_title"].isin(selected_titles)]
 
 # Metrics
 st.markdown("## 📊 Overview")
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 col1.metric("Total Jobs", len(filtered_df))
 col2.metric("Companies", filtered_df["company"].nunique())
-col3.metric("Locations", filtered_df["location"].nunique())
 
 st.markdown("---")
 
@@ -91,10 +98,9 @@ for _, row in filtered_df.iterrows():
     <div class="job-card">
         <div class="job-title">{row['job_title']}</div>
         <div class="job-meta"><strong>Company:</strong> {row['company']}</div>
-        <div class="job-meta"><strong>Location:</strong> {row['location']}</div>
         <a class="job-link" href="{row['job_url']}" target="_blank">🔗 View Job Posting</a>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption("✨ Powered by Streamlit | Built by Lakshmidhar K.")
+st.caption("✨ Powered by Streamlit | Data from GitHub")
