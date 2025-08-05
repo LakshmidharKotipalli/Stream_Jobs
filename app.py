@@ -3,14 +3,10 @@ import pandas as pd
 import json
 import requests
 
-# Streamlit page config
-st.set_page_config(
-    page_title="Job Listings Dashboard",
-    layout="wide",
-    page_icon="💼"
-)
+# Streamlit UI setup
+st.set_page_config(page_title="Job Listings Dashboard", layout="wide", page_icon="💼")
 
-# Inject minimal CSS for styling
+# Apply minimal CSS
 def local_css():
     css = """
     <style>
@@ -45,41 +41,39 @@ def local_css():
 
 local_css()
 
-# 👇 Replace YOUR_USERNAME and YOUR_REPO
-GITHUB_JSON_URLS = [
-    f"https://github.com/LakshmidharKotipalli/Job_Scraper/tree/main/data/jobs_batch_{i}_of_10.json"
-    for i in range(1, 11)
-]
+# GitHub folder API endpoint
+GITHUB_API_URL = "https://api.github.com/repos/LakshmidharKotipalli/Job_Scraper/contents/data"
 
-@st.cache_data(show_spinner=False)
-def load_all_jobs(urls):
+@st.cache_data(show_spinner=True)
+def load_all_json_from_github_folder(api_url):
     all_jobs = []
-    for url in urls:
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            jobs = json.loads(response.text)
+    try:
+        response = requests.get(api_url)
+        response.raise_for_status()
+        files = response.json()
+        json_files = [f for f in files if f["name"].endswith(".json")]
+
+        for file in json_files:
+            raw_url = file["download_url"]
+            file_resp = requests.get(raw_url)
+            file_resp.raise_for_status()
+            jobs = json.loads(file_resp.text)
             all_jobs.extend(jobs)
-        except Exception as e:
-            st.warning(f"⚠️ Failed to load {url}: {e}")
+    except Exception as e:
+        st.error(f"❌ Failed to load job data: {e}")
     return pd.DataFrame(all_jobs)
 
-# Load job data
-df = load_all_jobs(GITHUB_JSON_URLS)
+df = load_all_json_from_github_folder(GITHUB_API_URL)
 
-# Expected columns
+# Validate columns
 required_columns = {"title", "url", "company_site"}
 if not required_columns.issubset(df.columns):
     st.error(f"Missing required columns: {required_columns - set(df.columns)}")
     st.stop()
 
-if df.empty:
-    st.warning("No job listings available.")
-    st.stop()
-
 # Sidebar filters
 with st.sidebar:
-    st.header("🔎 Filter Jobs")
+    st.header("🔍 Filter Jobs")
     selected_sites = st.multiselect("Filter by Company Site", sorted(df["company_site"].dropna().unique()))
     selected_titles = st.multiselect("Filter by Job Title", sorted(df["title"].dropna().unique()))
 
@@ -110,4 +104,4 @@ for _, row in filtered_df.iterrows():
     """, unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption("✨ Powered by Streamlit | JSON from GitHub")
+st.caption("✨ Powered by Streamlit | Live data from GitHub folder")
