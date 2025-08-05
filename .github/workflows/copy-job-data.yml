@@ -2,31 +2,30 @@ name: 🔁 Sync job data from Job_Scraper
 
 on:
   schedule:
-    - cron: '0 * * * *'  # runs every hour
-  workflow_dispatch:     # allows manual run
+    - cron: '0 * * * *'  # Runs every hour
+  workflow_dispatch:     # Allows manual trigger
 
 jobs:
   sync-data:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout target repo
+      - name: Checkout current repo (Stream_Jobs)
         uses: actions/checkout@v3
 
-      - name: Clone source repo (Job_Scraper)
+      - name: Clone Job_Scraper repo
         run: |
           git clone https://github.com/LakshmidharKotipalli/Job_Scraper temp_source
 
-      - name: Copy /data folder from source
+      - name: Copy /data folder from Job_Scraper
         run: |
           rm -rf data
-          cp -r temp_source/data ./
+          cp -r temp_source/data ./data
 
-      - name: Commit and push changes
+      - name: Commit and push if there are changes
         run: |
-          git config user.name "GitHub Action"
-          git config user.email "action@github.com"
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
           git add data
           git diff --quiet && git diff --staged --quiet || git commit -m "🔄 Synced job data from Job_Scraper"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/LakshmidharKotipalli/Stream_Jobs.git
