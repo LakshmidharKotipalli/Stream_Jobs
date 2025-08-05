@@ -42,7 +42,7 @@ def local_css():
 local_css()
 
 # GitHub API URL for the 'data' folder in your repo
-GITHUB_API_URL = "https://github.com/LakshmidharKotipalli/Job_Scraper/data"
+GITHUB_API_URL = "https://github.com/LakshmidharKotipalli/Job_Scraper/tree/main/data/"
 
 @st.cache_data(show_spinner=True)
 def load_all_json_from_github_folder(api_url):
