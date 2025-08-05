@@ -3,14 +3,14 @@ import pandas as pd
 import json
 import requests
 
-# Set page config
+# Streamlit page config
 st.set_page_config(
     page_title="Job Listings Dashboard",
     layout="wide",
     page_icon="💼"
 )
 
-# Inject custom CSS
+# Inject minimal CSS for styling
 def local_css():
     css = """
     <style>
@@ -45,23 +45,30 @@ def local_css():
 
 local_css()
 
-# GitHub raw URL
-GITHUB_JSON_URL = "https://github.com/LakshmidharKotipalli/Job_Scraper/blob/main/data/all_jobs.json"
+# 👇 Replace YOUR_USERNAME and YOUR_REPO
+GITHUB_JSON_URLS = [
+    f"https://github.com/LakshmidharKotipalli/Job_Scraper/tree/main/data/jobs_batch_{i}_of_10.json"
+    for i in range(1, 11)
+]
 
 @st.cache_data(show_spinner=False)
-def load_jobs_from_github(url):
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        return pd.DataFrame(json.loads(response.text))
-    except Exception as e:
-        st.error(f"Error loading data from GitHub: {e}")
-        return pd.DataFrame()
+def load_all_jobs(urls):
+    all_jobs = []
+    for url in urls:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            jobs = json.loads(response.text)
+            all_jobs.extend(jobs)
+        except Exception as e:
+            st.warning(f"⚠️ Failed to load {url}: {e}")
+    return pd.DataFrame(all_jobs)
 
-df = load_jobs_from_github(GITHUB_JSON_URL)
+# Load job data
+df = load_all_jobs(GITHUB_JSON_URLS)
 
-# Check for required columns
-required_columns = {"company", "job_title", "job_url"}
+# Expected columns
+required_columns = {"title", "url", "company_site"}
 if not required_columns.issubset(df.columns):
     st.error(f"Missing required columns: {required_columns - set(df.columns)}")
     st.stop()
@@ -73,21 +80,21 @@ if df.empty:
 # Sidebar filters
 with st.sidebar:
     st.header("🔎 Filter Jobs")
-    selected_companies = st.multiselect("Select Company", sorted(df["company"].dropna().unique()))
-    selected_titles = st.multiselect("Select Job Title", sorted(df["job_title"].dropna().unique()))
+    selected_sites = st.multiselect("Filter by Company Site", sorted(df["company_site"].dropna().unique()))
+    selected_titles = st.multiselect("Filter by Job Title", sorted(df["title"].dropna().unique()))
 
 # Apply filters
 filtered_df = df.copy()
-if selected_companies:
-    filtered_df = filtered_df[filtered_df["company"].isin(selected_companies)]
+if selected_sites:
+    filtered_df = filtered_df[filtered_df["company_site"].isin(selected_sites)]
 if selected_titles:
-    filtered_df = filtered_df[filtered_df["job_title"].isin(selected_titles)]
+    filtered_df = filtered_df[filtered_df["title"].isin(selected_titles)]
 
 # Metrics
 st.markdown("## 📊 Overview")
 col1, col2 = st.columns(2)
 col1.metric("Total Jobs", len(filtered_df))
-col2.metric("Companies", filtered_df["company"].nunique())
+col2.metric("Company Sites", filtered_df["company_site"].nunique())
 
 st.markdown("---")
 
@@ -96,11 +103,11 @@ st.markdown("## 💼 Job Listings")
 for _, row in filtered_df.iterrows():
     st.markdown(f"""
     <div class="job-card">
-        <div class="job-title">{row['job_title']}</div>
-        <div class="job-meta"><strong>Company:</strong> {row['company']}</div>
-        <a class="job-link" href="{row['job_url']}" target="_blank">🔗 View Job Posting</a>
+        <div class="job-title">{row['title']}</div>
+        <div class="job-meta"><strong>Company Site:</strong> <a href="{row['company_site']}" target="_blank">{row['company_site']}</a></div>
+        <a class="job-link" href="{row['url']}" target="_blank">🔗 View Job Posting</a>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption("✨ Powered by Streamlit | Data from GitHub")
+st.caption("✨ Powered by Streamlit | JSON from GitHub")
