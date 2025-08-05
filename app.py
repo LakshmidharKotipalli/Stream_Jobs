@@ -3,10 +3,10 @@ import pandas as pd
 import json
 import requests
 
-# Streamlit UI setup
+# Streamlit page config
 st.set_page_config(page_title="Job Listings Dashboard", layout="wide", page_icon="💼")
 
-# Apply minimal CSS
+# Apply minimal CSS styling
 def local_css():
     css = """
     <style>
@@ -41,12 +41,14 @@ def local_css():
 
 local_css()
 
-# GitHub folder API endpoint
-GITHUB_API_URL = "https://github.com/LakshmidharKotipalli/Job_Scraper/tree/main/data"
+# GitHub API URL for the 'data' folder in your repo
+GITHUB_API_URL = "https://github.com/LakshmidharKotipalli/Job_Scraper/data"
 
 @st.cache_data(show_spinner=True)
 def load_all_json_from_github_folder(api_url):
     all_jobs = []
+    error_files = []
+
     try:
         response = requests.get(api_url)
         response.raise_for_status()
@@ -55,20 +57,38 @@ def load_all_json_from_github_folder(api_url):
 
         for file in json_files:
             raw_url = file["download_url"]
-            file_resp = requests.get(raw_url)
-            file_resp.raise_for_status()
-            jobs = json.loads(file_resp.text)
-            all_jobs.extend(jobs)
+            try:
+                file_resp = requests.get(raw_url)
+                file_resp.raise_for_status()
+                jobs = json.loads(file_resp.text)
+
+                if isinstance(jobs, list):
+                    all_jobs.extend(jobs)
+                else:
+                    error_files.append(file["name"])
+            except Exception as e:
+                error_files.append(file["name"])
+
     except Exception as e:
-        st.error(f"❌ Failed to load job data: {e}")
+        st.error(f"❌ Failed to connect to GitHub API: {e}")
+        return pd.DataFrame()
+
+    if error_files:
+        st.warning(f"⚠️ Skipped {len(error_files)} malformed or empty files: {', '.join(error_files)}")
+
     return pd.DataFrame(all_jobs)
 
+# Load job data
 df = load_all_json_from_github_folder(GITHUB_API_URL)
 
-# Validate columns
+# Check columns
 required_columns = {"title", "url", "company_site"}
 if not required_columns.issubset(df.columns):
-    st.error(f"Missing required columns: {required_columns - set(df.columns)}")
+    st.error(f"❌ Missing required columns: {required_columns - set(df.columns)}")
+    st.stop()
+
+if df.empty:
+    st.warning("No job listings available.")
     st.stop()
 
 # Sidebar filters
@@ -84,7 +104,7 @@ if selected_sites:
 if selected_titles:
     filtered_df = filtered_df[filtered_df["title"].isin(selected_titles)]
 
-# Metrics
+# Summary metrics
 st.markdown("## 📊 Overview")
 col1, col2 = st.columns(2)
 col1.metric("Total Jobs", len(filtered_df))
@@ -92,7 +112,7 @@ col2.metric("Company Sites", filtered_df["company_site"].nunique())
 
 st.markdown("---")
 
-# Job cards
+# Display job cards
 st.markdown("## 💼 Job Listings")
 for _, row in filtered_df.iterrows():
     st.markdown(f"""
